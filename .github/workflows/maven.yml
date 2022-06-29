@@ -1,0 +1,45 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    runs-on: ${matrix.os}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-18.04]
+        java-version: [1.8, 11, 14, 17]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '${{ matrix.java-version }}'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0.9.13
+      with:
+        versionSpec: '5.10.3'
+    - name: Compute versioning
+      id: version
+      uses: gittools/actions/gitversion/execute@v0.9.13
+      
+    - name: Build with Maven
+      run: >
+        mvn -Dsha1="${{ steps.version.outputs.shortSha }}" -Drevision="${gitver}" \
+            -Dmaven.compiler.release=${{ matrix.java-version }} -B package --file pom.xml
+    - name: Test with Maven
+      run: >
+        mvn -Dsha1="${{ steps.version.outputs.shortSha }}" -Drevision="${gitver}" \
+            -Dmaven.compiler.release=${{ matrix.java-version }} -B test --file pom.xml
