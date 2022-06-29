@@ -3259,10 +3259,7 @@ public class TagUIUtils
 									if ( input.length() > 0 ){
 
 										Utils.getOffOfSWTThread(()->{
-											for ( Tag t: group.getTags()){
-												
-												t.setGroup( input );
-											}
+											group.setName( input );
 										});
 									}
 								}
@@ -3861,13 +3858,25 @@ public class TagUIUtils
 		List<Tag>				tags,
 		TagSelectionListener	listener )
 	{
-		Menu menu = new Menu( top_menu.getShell(), SWT.DROP_DOWN);
+		Menu 		menu;
+		MenuItem 	top_item;
+		
+		if ( resource != null ){
+			
+			menu = new Menu( top_menu.getShell(), SWT.DROP_DOWN);
 
-		MenuItem top_item = new MenuItem( top_menu, SWT.CASCADE);
-
-		Messages.setLanguageText( top_item, resource );
-
-		top_item.setMenu( menu );
+			top_item = new MenuItem( top_menu, SWT.CASCADE);
+	
+			Messages.setLanguageText( top_item, resource );
+	
+			top_item.setMenu( menu );
+			
+		}else{
+			
+			menu = top_menu;
+			
+			top_item = null;
+		}
 	
 		List<String>	menu_names 		= new ArrayList<>();
 		Map<String,Tag>	menu_name_map 	= new IdentityHashMap<>();

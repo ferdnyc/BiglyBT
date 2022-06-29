@@ -95,6 +95,8 @@ TagManagerImpl
 
 	private static TagManagerImpl	singleton;
 
+	private static Object KEY_TG_COLUMNS = new Object();
+	
 	public static synchronized TagManagerImpl
 	getSingleton()
 	{
@@ -2092,8 +2094,9 @@ TagManagerImpl
 
 	protected void
 	tagGroupCreated(
-		TagTypeBase		tag_type,
-		TagGroupImpl	group )
+		TagTypeBase			tag_type,
+		TagGroupImpl		group,
+		TagGroupImpl		old_group )
 	{
 		Map<String,Object> conf = getConf( tag_type, false );
 		
@@ -2112,20 +2115,44 @@ TagManagerImpl
 		UIManager ui_manager = pi.getUIManager();
 		
 		TableManager tm = ui_manager.getTableManager();
+			
+		List<TableColumn> old_cols = null;
+		
+		if ( old_group != null ){
+			
+			String old_col_id_text 	= "tag.group.col." + old_group.getGroupID();
+			String old_col_id_icons = "tag.group.col.icons." + old_group.getGroupID();
+
+			tm.unregisterColumn( Download.class, old_col_id_text );
+			tm.unregisterColumn( Download.class, old_col_id_icons );
+			
+			synchronized( KEY_TG_COLUMNS ){
 				
+				old_cols = (List<TableColumn>)old_group.getUserData( KEY_TG_COLUMNS );
+			}
+			
+			if ( old_cols != null ){
+				
+				for (TableColumn tc: old_cols ){
+					
+					tc.remove();
+				}
+			}
+		}
+		
 		Properties props = new Properties();
 		
 		String col_id_text 	= "tag.group.col." + group.getGroupID();
 		String col_id_icons = "tag.group.col.icons." + group.getGroupID();
 
 		props.put( "TableColumn.header." + col_id_text, group.getName());
-		props.put( "TableColumn.header." + col_id_text + ".info", MessageText.getString( "label.tag.names" ));
+		props.put( "TableColumn.header." + col_id_text + ".info", MessageText.getString( "label.tags" ));
 		props.put( "TableColumn.header." + col_id_icons, group.getName());
 		props.put( "TableColumn.header." + col_id_icons + ".info", MessageText.getString( "TableColumn.header.tag_icons" ));
 		
 		pi.getUtilities().getLocaleUtilities().integrateLocalisedMessageBundle( props );
 		
-		int[]	interesting_tts = { TagType.TT_DOWNLOAD_MANUAL, TagType.TT_DOWNLOAD_CATEGORY };
+		// int[]	interesting_tts = { TagType.TT_DOWNLOAD_MANUAL, TagType.TT_DOWNLOAD_CATEGORY };
 		
 		tm.registerColumn(
 			Download.class,
@@ -2133,7 +2160,25 @@ TagManagerImpl
 			new TableColumnCreationListener(){
 				
 				@Override
-				public void tableColumnCreated(TableColumn column){
+				public void 
+				tableColumnCreated(
+					TableColumn column)
+				{
+					synchronized( KEY_TG_COLUMNS ){
+						
+						List<TableColumn> cols = (List<TableColumn>)group.getUserData( KEY_TG_COLUMNS );
+						
+						if ( cols == null ){
+							
+							cols = new ArrayList<>();
+							
+							group.setUserData( KEY_TG_COLUMNS, cols );
+						}
+						
+						cols.add( column );
+					}
+					
+					/*
 					column.setAlignment(TableColumn.ALIGN_CENTER);
 					column.setPosition(TableColumn.POSITION_INVISIBLE);
 					column.setWidth(70);
@@ -2178,6 +2223,17 @@ TagManagerImpl
 
 							cell.setText((sTags == null) ? "" : sTags );
 						});
+						*/
+					
+					try{
+						Class cla = Class.forName( "com.biglybt.ui.swt.columns.tag.ColumnTagGroupTags");
+						
+						cla.getConstructor( TableColumn.class, TagGroup.class ).newInstance( column, group );
+						
+					}catch( Throwable e ){
+						
+						Debug.out( e );
+					}
 				}
 			});
 		
@@ -2187,7 +2243,24 @@ TagManagerImpl
 				new TableColumnCreationListener(){
 					
 					@Override
-					public void tableColumnCreated(TableColumn column){
+					public void 
+					tableColumnCreated(
+						TableColumn column)
+					{
+						synchronized( KEY_TG_COLUMNS ){
+							
+							List<TableColumn> cols = (List<TableColumn>)group.getUserData( KEY_TG_COLUMNS );
+							
+							if ( cols == null ){
+								
+								cols = new ArrayList<>();
+								
+								group.setUserData( KEY_TG_COLUMNS, cols );
+							}
+							
+							cols.add( column );
+						}
+						
 						try{
 							Class cla = Class.forName( "com.biglybt.ui.swt.columns.tag.ColumnTagGroupIcons");
 							
@@ -2224,6 +2297,33 @@ TagManagerImpl
 		setDirty();
 	}
 	
+	protected void
+	tagGroupDeleted(
+		TagTypeBase		tag_type,
+		TagGroupImpl	group )
+	{
+		Map<String,Object> conf = getConf( tag_type, true );
+		
+		String id = group.getGroupID();
+					
+		if ( conf.remove( id ) != null ){
+		
+			setDirty();
+		}
+	}
+	
+	protected void
+	tagGroupRenamed(
+		TagTypeBase		tag_type,
+		TagGroupImpl	old_group,
+		TagGroupImpl	new_group )
+	{
+		tagGroupDeleted( tag_type, old_group );
+		
+		tagGroupCreated( tag_type, new_group, old_group );
+		
+		tagGroupUpdated( tag_type, new_group );
+	}
 	
 	protected void
 	checkRSSFeeds(

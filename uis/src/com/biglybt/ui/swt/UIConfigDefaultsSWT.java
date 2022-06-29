@@ -215,8 +215,11 @@ public class UIConfigDefaultsSWT
 		def.addParameter("Table.useTree", false);
 		def.addParameter("Table.tooltip.disable", false);
 		def.addParameter("Table.sort.intuitive", false);
+		def.addParameter("Table.filter.confusable", true );
+		def.addParameter("Table Header Gradient Fill", true);
 		def.addParameter("Dark Table Colors", false );
 		def.addParameter("Dark Misc Colors", false );
+		def.addParameter("Gradient Fill Selection", true );
 		
 		if ("az2".equalsIgnoreCase(COConfigurationManager.getStringParameter("ui", "az3"))) {
 			def.addParameter("v3.Show Welcome", false);

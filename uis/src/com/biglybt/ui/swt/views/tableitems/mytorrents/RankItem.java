@@ -30,10 +30,13 @@ import com.biglybt.core.download.DownloadManager;
 import com.biglybt.core.download.DownloadManagerListener;
 import com.biglybt.core.global.GlobalManager;
 import com.biglybt.core.global.GlobalManagerListener;
+import com.biglybt.core.internat.MessageText;
 import com.biglybt.core.util.Debug;
 
 import com.biglybt.core.CoreRunningListener;
 import com.biglybt.core.CoreFactory;
+import com.biglybt.ui.common.table.TableRowCore;
+import com.biglybt.ui.common.table.TableView;
 import com.biglybt.ui.swt.imageloader.ImageLoader;
 
 import com.biglybt.pif.download.Download;
@@ -112,8 +115,8 @@ public class RankItem
 	  paramShowIconKeyListener = new ParameterListener() {
 		  @Override
 		  public void parameterChanged(String parameterName) {
-			  RankItem.this.invalidateCells();
 			  showIcon = (COConfigurationManager.getBooleanParameter(showIconKey));
+			  RankItem.this.invalidateCells();
 		  }
 	  };
 	  COConfigurationManager.addWeakParameterListener(paramShowIconKeyListener,
@@ -122,16 +125,75 @@ public class RankItem
     ImageLoader imageLoader = ImageLoader.getInstance();
     imgUp = imageLoader.getImage("image.torrentspeed.up");
     imgDown = imageLoader.getImage("image.torrentspeed.down");
+    
+	TableContextMenuItem menuSetFromSort = addContextMenuItem(
+			"menu.set.order.from.sort", MENU_STYLE_HEADER);
+	menuSetFromSort.setStyle(TableContextMenuItem.STYLE_PUSH);
+	
+	menuSetFromSort.addFillListener(new MenuItemFillListener() {
+		@Override
+		public void menuWillBeShown(MenuItem menu, Object data) {
+			TableView<?> tv = menuSetFromSort.getTable();
+			
+			if ( tv != null ){
+				
+				TableRowCore[] selRows = tv.getSelectedRows();
+				
+				if ( selRows.length > 1 ){
+			
+					menuSetFromSort.setText( MessageText.getString( "menu.set.order.for.selection"));
+					
+					return;
+				}
+			}
+			
+			menuSetFromSort.setText( MessageText.getString( "menu.set.order.from.sort"));
+		}
+	});
+	
+	menuSetFromSort.addListener((menu, target)->{
+		
+		TableView<?> tv = menuSetFromSort.getTable();
+		
+		if ( tv != null ){
+			
+			TableRowCore[] rows;
+			
+			TableRowCore[] selRows = tv.getSelectedRows();
+			
+			if ( selRows.length > 1 ){
+				
+				rows = selRows;
+				
+			}else{
+				
+				rows = tv.getRows();
+			}
+			
+			int pos = 1;
+			
+			GlobalManager gm = CoreFactory.getSingleton().getGlobalManager();
+			
+			for ( TableRowCore row: rows ){
+				
+				DownloadManager o = (DownloadManager)row.getDataSource(true);
+				
+				gm.moveTo(o, pos++);
+			}
+			
+			RankItem.this.invalidateCells();
+		}
+	});
   }
 
-	@Override
-	public void reset() {
-		super.reset();
+  @Override
+  public void reset() {
+	  super.reset();
 
-		COConfigurationManager.removeParameter( showIconKey );
-	}
+	  COConfigurationManager.removeParameter( showIconKey );
+  }
 
-	@Override
+  @Override
   public void
   remove()
   {

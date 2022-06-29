@@ -45,13 +45,13 @@ import com.biglybt.pif.ui.menus.MenuItemFillListener;
 import com.biglybt.pif.ui.menus.MenuItemListener;
 import com.biglybt.pif.ui.menus.MenuManager;
 import com.biglybt.pifimpl.local.ui.menus.MenuItemImpl;
+import com.biglybt.pifimpl.local.ui.tables.TableContextMenuItemImpl;
 import com.biglybt.pifimpl.local.utils.FormattersImpl;
 import com.biglybt.pif.ui.tables.TableContextMenuItem;
-import com.biglybt.ui.swt.mainwindow.MenuFactory;
+import com.biglybt.ui.common.table.TableView;
 import com.biglybt.ui.swt.pif.UISWTGraphic;
 import com.biglybt.ui.swt.shells.main.MainMenuV3;
 import com.biglybt.core.internat.MessageText;
-import com.biglybt.core.tag.Tag;
 import com.biglybt.core.util.*;
 
 import com.biglybt.plugin.I2PHelpers;
@@ -168,6 +168,8 @@ public class MenuBuildUtils {
 	 */
 	public static interface PluginMenuController {
 
+		public void buildStarts( Menu menu );
+		
 		/**
 		 * This method should create a listener object which should be invoked
 		 * when the given menu item is selected.
@@ -196,6 +198,8 @@ public class MenuBuildUtils {
 	public static class MenuItemPluginMenuControllerImpl implements
 			PluginMenuController {
 
+		private Menu	parentMenu;
+		
 		private Object[] objects;
 
 		public MenuItemPluginMenuControllerImpl(Object[] o) {
@@ -208,6 +212,10 @@ public class MenuBuildUtils {
 			return new Listener() {
 				@Override
 				public void handleEvent(Event e) {
+					if ( mii instanceof TableContextMenuItemImpl ){
+						TableView<?> tv = (TableView<?>)parentMenu.getData( TableContextMenuItemImpl.MENUKEY_TABLE_VIEW );
+						((TableContextMenuItemImpl)mii).setTable(tv);
+					}
 					mii.invokeListenersMulti(objects);
 				}
 			};
@@ -215,7 +223,12 @@ public class MenuBuildUtils {
 
 		@Override
 		public void notifyFillListeners(MenuItem menu_item) {
-			((MenuItemImpl) menu_item).invokeMenuWillBeShownListeners(objects);
+			MenuItemImpl mii = (MenuItemImpl) menu_item;
+			if ( mii instanceof TableContextMenuItemImpl ){
+				TableView<?> tv = (TableView<?>)parentMenu.getData( TableContextMenuItemImpl.MENUKEY_TABLE_VIEW );
+				((TableContextMenuItemImpl)mii).setTable(tv);
+			}
+			mii.invokeMenuWillBeShownListeners(objects);
 		}
 
 		// @see com.biglybt.ui.swt.MenuBuildUtils.PluginMenuController#buildSubmenu(com.biglybt.pif.ui.menus.MenuItem)
@@ -233,7 +246,13 @@ public class MenuBuildUtils {
 		}
 		
 		@Override
+		public void buildStarts(Menu menu){
+			parentMenu = menu;
+		}
+		
+		@Override
 		public void buildComplete(Menu menu){
+			parentMenu = menu;
 		}
 	}
 
@@ -269,6 +288,8 @@ public class MenuBuildUtils {
 			boolean prev_was_separator,
 			final boolean enable_items, final PluginMenuController controller) {
 
+		controller.buildStarts( parent );
+		
 		for (int i = 0; i < items.length; i++) {
 			final MenuItemImpl az_menuitem = (MenuItemImpl) items[i];
 

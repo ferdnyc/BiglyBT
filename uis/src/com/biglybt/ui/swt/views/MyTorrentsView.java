@@ -1464,7 +1464,8 @@ public class MyTorrentsView
 	filterCheck(
 		DownloadManager 	dm, 
 		String 				sLastSearch, 
-		boolean 			bRegexSearch) 
+		boolean 			bRegexSearch,
+		boolean				confusable )
 	{
 		if ( dm == null ){
 			return( false );
@@ -1530,7 +1531,10 @@ public class MyTorrentsView
 
 				String tmpSearch = sLastSearch;
 
-				tmpSearch = GeneralUtils.getConfusableEquivalent( tmpSearch );
+				if ( confusable ){
+				
+					tmpSearch = GeneralUtils.getConfusableEquivalent( tmpSearch, true );
+				}
 
 				for ( int i = 1; i < name_mapping.length; i++ ){
 
@@ -1643,7 +1647,10 @@ public class MyTorrentsView
 
 					String name = (String)o_name;
 					
-					name = GeneralUtils.getConfusableEquivalent( name );
+					if ( confusable ){
+						
+						name = GeneralUtils.getConfusableEquivalent( name, false );
+					}
 					
 					bOurs = pattern.matcher( name ).find() == match_result;
 
@@ -1655,7 +1662,11 @@ public class MyTorrentsView
 					bOurs = !match_result;
 
 					for ( String name: names ){
-						name = GeneralUtils.getConfusableEquivalent(name);
+						
+						if ( confusable ){
+						
+							name = GeneralUtils.getConfusableEquivalent( name, false );
+						}
 
 						if ( pattern.matcher( name ).find()){
 							bOurs = match_result;
@@ -1757,31 +1768,36 @@ public class MyTorrentsView
 		});
 	}
 
-	private void swt_viewChanged(final TableView<DownloadManager> view) {
+	private void 
+	swt_viewChanged(
+		TableView<DownloadManager> view )
+	{
+		if ( filterBox == null || filterBox.isDisposed() || vtxi == null ){
+			
+			return;
+		}		
 
-		Composite filterParent = filterBox == null ? null : filterBox.getMainWidget().getParent();
-		if ( filterParent != null && !filterParent.isDisposed()){
+		Composite filterParent = filterBox.getMainWidget().getParent();
+		
+		if ( !filterParent.isDisposed()){
 
-			if ( vtxi != null){
+			TableRowCore[] rows = view.getRows();
 
-				TableRowCore[] rows = view.getRows();
+			int	active = 0;
 
-				int	active = 0;
+			for ( TableRowCore row: rows ){
 
-				for ( TableRowCore row: rows ){
+				DownloadManager dm = (DownloadManager)row.getDataSource( true );
 
-					DownloadManager dm = (DownloadManager)row.getDataSource( true );
+				int	state = dm.getState();
 
-					int	state = dm.getState();
+				if ( state == DownloadManager.STATE_DOWNLOADING || state == DownloadManager.STATE_SEEDING ){
 
-					if ( state == DownloadManager.STATE_DOWNLOADING || state == DownloadManager.STATE_SEEDING ){
-
-						active++;
-					}
+					active++;
 				}
-
-				vtxi.searchUpdate( tv.getComposite(), rows.length, active );
 			}
+
+			vtxi.searchUpdate( tv.getComposite(), rows.length, active );
 		}
 	}
 
