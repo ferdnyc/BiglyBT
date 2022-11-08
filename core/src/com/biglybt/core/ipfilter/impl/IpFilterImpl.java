@@ -47,12 +47,14 @@ public class
 IpFilterImpl
 	implements IpFilter
 {
-	protected static final LogIDs LOGID = LogIDs.CORE;
+	protected static final LogIDs LOGID_CORE = LogIDs.CORE;
+	protected static final LogIDs LOGID_NWMAN = LogIDs.NWMAN;
+	protected static final LogIDs LOGID = LOGID_CORE;  // backward-compatibility
 
 	private final static int MAX_BLOCKS_TO_REMEMBER = 500;
 
 	private static IpFilterImpl ipFilter;
-	
+
 	static final AEMonitor	class_mon	= new AEMonitor( "IpFilter:class" );
 
 	private final IPAddressRangeManagerV4	range_manager_v4 = new IPAddressRangeManagerV4();
@@ -120,9 +122,9 @@ IpFilterImpl
 
 	  blockedListChangedDispatcher = new FrequencyLimitedDispatcher(
 			  new AERunnable() {
-				  
+
 				  AsyncDispatcher disp = new AsyncDispatcher(1000);
-				  
+
 				  @Override
 				  public void runSupport() {
 					  disp.dispatch( AERunnable.create( ()->{
@@ -140,7 +142,7 @@ IpFilterImpl
 	  ipFilterAutoLoader = new IpFilterAutoLoaderImpl(this);
 
 	  ipBanner = new IPBannerImpl( this );
-	  
+
 	  try{
 
 	  	loadFilters(true, true);
@@ -203,16 +205,16 @@ IpFilterImpl
 		throws Exception
 	{
 		if ( COConfigurationManager.getBooleanParameter( "Ip Filter Clear On Reload" )){
-			
+
 			range_manager_v4.clearAllEntries();
-			
+
 			range_manager_v6.clearAllEntries();
-			
+
 			IpFilterManagerFactory.getSingleton().deleteAllDescriptions();
 		}
-		
+
 		markAsUpToDate();
-		
+
 		loadFilters(allowAsyncDownloading, false);
 	}
 
@@ -229,18 +231,18 @@ IpFilterImpl
 
 
 			List filters = new ArrayList();
-			
+
 			map.put("ranges",filters);
-			
-			List<Iterator<IpRangeImpl>> iters = 
+
+			List<Iterator<IpRangeImpl>> iters =
 					Arrays.asList( range_manager_v4.getEntries().iterator(), range_manager_v6.getEntries().iterator());
-			
+
 			for ( Iterator<IpRangeImpl> iter: iters ){
-			
+
 				while(iter.hasNext()){
-					
+
 					IpRangeImpl range = iter.next();
-				  
+
 				  if(range.isValid() && ! range.isSessionOnly()) {
 					String description =  range.getDescription();
 					String startIp = range.getStartIp();
@@ -290,7 +292,7 @@ IpFilterImpl
 		ipFilterAutoLoader.loadOtherFilters(allowAsyncDownloading, loadOldWhileAsyncDownloading);
 
 		if (getNbRanges() > 0) {
-			Logger.log(new LogEvent(LOGID, (System.currentTimeMillis() - startTime)
+			Logger.log(new LogEvent(LOGID_CORE, (System.currentTimeMillis() - startTime)
 					+ "ms for " + getNbRanges() + ". now loading norm"));
 		}
 
@@ -319,15 +321,15 @@ IpFilterImpl
 				  String startIp =  new String((byte[])range.get("start"));
 				  String endIp = new String((byte[])range.get("end"));
 				  Number type = (Number)range.get( "type" );
-				  
+
 				  IpRangeImpl ipRange;
-				  
+
 				  if ( type == null || type.intValue() == 1 ){
-					  
+
 					  ipRange = new IpRangeV4Impl(description,startIp,endIp,false);
-					  
+
 				  }else{
-					  
+
 					  ipRange = new IpRangeV6Impl(description,startIp,endIp,false);
 				  }
 
@@ -363,11 +365,11 @@ IpFilterImpl
 
 			class_mon.exit();
 		}
-		
+
 	  	markAsUpToDate();
 
-		Logger.log(new LogEvent(LOGID, (System.currentTimeMillis() - startTime)
-				+ "ms to load all IP Filters"));
+		Logger.log(new LogEvent(LOGID_CORE,
+			(System.currentTimeMillis() - startTime) + "ms to load all IP Filters"));
 	}
 
 
@@ -437,33 +439,33 @@ IpFilterImpl
 	  boolean allow = ip_filter_allow;
 
 	  InetAddress ia;
-	  
+
 	  try{
 		  if ( HostNameToIPResolver.isNonDNSName(ipAddress)){
-			  
+
 			  return( false );
 		  }
-		  
+
 		  ia = HostNameToIPResolver.syncResolve(ipAddress);
-			
+
 	  }catch( Throwable e ){
-		  
+
 		  Debug.out( e );
-		  
+
 		  return( false );
 	  }
-	  
+
 	  IpRange	match;
-	  
+
 	  if ( ia instanceof Inet4Address ){
-		  
+
 		  match = range_manager_v4.isInRange((Inet4Address)ia );
-		  
+
 	  }else{
-		  
+
 		  match = range_manager_v6.isInRange((Inet6Address)ia );
 	  }
-	  
+
 	  if ( match == null || allow ){
 
 		  IpRange explict_deny = checkExternalHandlers( torrent_hash, ipAddress );
@@ -476,37 +478,37 @@ IpFilterImpl
 		  }
 	  }
 
-	  if(match != null) {
-	    if(!allow) {
+		if(match != null) {
+			if(!allow) {
 
-	      	// don't bounce non-public addresses (we can ban them but not filter them as they have no sensible
-		  	// real filter address
+				// don't bounce non-public addresses (we can ban them but not filter them as they have no sensible
+				// real filter address
 
-		  if ( AENetworkClassifier.categoriseAddress( ipAddress ) != AENetworkClassifier.AT_PUBLIC ){
+			if ( AENetworkClassifier.categoriseAddress( ipAddress ) != AENetworkClassifier.AT_PUBLIC ){
 
-			  return( false );
-		  }
+				return( false );
+			}
 
-	      if ( addBlockedIP( new BlockedIpImpl( ipAddress, match, torrent_name, loggable), torrent_hash, loggable )){
+			if ( addBlockedIP( new BlockedIpImpl( ipAddress, match, torrent_name, loggable), torrent_hash, loggable )){
 
-		      if (Logger.isEnabled())
-						Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocked : "
-								+ ipAddress + ", in range : " + match));
+				if (Logger.isEnabled())
+						Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+							"Ip Blocked : " + ipAddress + ", in range : " + match));
 
-		      return true;
+				return true;
 
-	      }else{
+			}else{
 
-		      if (Logger.isEnabled())
-					Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocking Denied : "
-							+ ipAddress + ", in range : " + match));
+				if (Logger.isEnabled())
+					Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+						"Ip Blocking Denied : " + ipAddress + ", in range : " + match));
 
-		      return false;
-	      }
-	    }
+					return false;
+				}
+			}
 
-	    return false;
-	  }
+			return false;
+		}
 
 
 	  if( allow ){
@@ -516,23 +518,23 @@ IpFilterImpl
 		  return( false );
 		}
 
-	    if ( addBlockedIP( new BlockedIpImpl(ipAddress,null, torrent_name, loggable), torrent_hash, loggable )){
+		if ( addBlockedIP( new BlockedIpImpl(ipAddress,null, torrent_name, loggable), torrent_hash, loggable )){
 
-		    if (Logger.isEnabled())
-					Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocked : "
-							+ ipAddress + ", not in any range"));
+			if (Logger.isEnabled())
+				Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+					"Ip Blocked : " + ipAddress + ", not in any range"));
 
-		    return true;
+			return true;
 
-	    }else{
+		}else{
 
-		    if (Logger.isEnabled())
-				Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocking Denied : "
-						+ ipAddress + ", not in any range"));
+			if (Logger.isEnabled())
+				Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+					"Ip Blocking Denied : " + ipAddress + ", not in any range"));
 
-		    return false;
-	    }
-	  }
+				return false;
+			}
+		}
 
 	  return false;
 	}
@@ -584,16 +586,16 @@ IpFilterImpl
 	  boolean allow = ip_filter_allow;
 
 	  IpRange	match;
-	  
+
 	  if ( ipAddress instanceof Inet4Address ){
-	  
+
 		  match = range_manager_v4.isInRange((Inet4Address)ipAddress );
 
 	  }else{
-		  
+
 		  match = range_manager_v6.isInRange((Inet6Address)ipAddress );
 	  }
-	  
+
 	  if ( match == null || allow ){
 
 		  	// get here if
@@ -612,53 +614,53 @@ IpFilterImpl
 		  }
 	  }
 
-	  if ( match != null ){
+		if ( match != null ){
 
-	    if(!allow) {
+			if(!allow) {
 
-	      if ( addBlockedIP( new BlockedIpImpl(ipAddress.getHostAddress(),match, torrent_name, loggable), torrent_hash, loggable )){
+				if ( addBlockedIP( new BlockedIpImpl(ipAddress.getHostAddress(),match, torrent_name, loggable), torrent_hash, loggable )){
 
-		      if (Logger.isEnabled())
-						Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocked : "
-								+ ipAddress + ", in range : " + match));
+					if (Logger.isEnabled())
+						Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+							"Ip Blocked : " + ipAddress + ", in range : " + match));
 
-		      return true;
+					return true;
 
-	      }else{
+				}else{
 
-		      if (Logger.isEnabled())
-						Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocking Denied: "
-								+ ipAddress + ", in range : " + match));
+					if (Logger.isEnabled())
+						Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+							"Ip Blocking Denied: " + ipAddress + ", in range : " + match));
 
-		      return false;
+					return false;
 
-	      }
-	    }
+				}
+			}
 
-	    return false;
-	  }
+			return false;
+		}
 
 
-	  if( allow ){
+		if( allow ){
 
-	    if ( addBlockedIP( new BlockedIpImpl(ipAddress.getHostAddress(),null, torrent_name, loggable), torrent_hash, loggable )){
+			if ( addBlockedIP( new BlockedIpImpl(ipAddress.getHostAddress(),null, torrent_name, loggable), torrent_hash, loggable )){
 
-		    if (Logger.isEnabled())
-					Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocked : "
-							+ ipAddress + ", not in any range"));
+				if (Logger.isEnabled())
+					Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+						"Ip Blocked : " + ipAddress + ", not in any range"));
 
-		    return true;
-	    }else{
+				return true;
+			}else{
 
-		    if (Logger.isEnabled())
-				Logger.log(new LogEvent(LOGID, LogEvent.LT_WARNING, "Ip Blocking Denied : "
-						+ ipAddress + ", not in any range"));
+				if (Logger.isEnabled())
+					Logger.log(new LogEvent(LOGID_NWMAN, LogEvent.LT_WARNING,
+						"Ip Blocking Denied : " + ipAddress + ", not in any range"));
 
-		    return false;
-	    }
-	  }
+				return false;
+			}
+		}
 
-	  return false;
+		return false;
 	}
 
 	protected IpRange
@@ -670,15 +672,15 @@ IpFilterImpl
 
 			try{
 				InetAddress ia = HostNameToIPResolver.syncResolve(address);
-				  
+
 				return( checkExternalHandlers( torrent_hash, ia ));
-				
+
 			}catch( Throwable e ){
-				
+
 				Debug.out( e );
 			}
 		}
-		
+
 		return( null );
 	}
 
@@ -698,11 +700,11 @@ IpFilterImpl
 					String	ip = address.getHostAddress();
 
 					if ( address instanceof Inet4Address ){
-					
+
 						return( new IpRangeV4Impl( "External handler", ip, ip, true ));
-						
+
 					}else{
-						
+
 						return( new IpRangeV6Impl( "External handler", (Inet6Address)address, true ));
 					}
 				}
@@ -783,12 +785,12 @@ IpFilterImpl
 
 			List<IpRange> entries_v4 = range_manager_v4.getEntries();
 			List<IpRange> entries_v6 = range_manager_v6.getEntries();
-			
+
 			List<IpRange>	entries = new ArrayList<>( entries_v4.size() + entries_v6.size());
-			
+
 			entries.addAll( entries_v4 );
 			entries.addAll( entries_v6 );
-			
+
 			IpRange[]	res = new IpRange[entries.size()];
 
 			entries.toArray( res );
@@ -843,15 +845,15 @@ IpFilterImpl
 			class_mon.enter();
 
 			IpRangeImpl r = (IpRangeImpl)range;
-			
+
 			r.setAddedToRangeList( false );
 
 			if ( r.isV4()){
-			
+
 				range_manager_v4.removeRange((IpRangeV4Impl)range );
 
 			}else{
-				
+
 				range_manager_v6.removeRange((IpRangeV6Impl)range );
 			}
 		}finally{
@@ -863,8 +865,8 @@ IpFilterImpl
 	}
 
 	@Override
-	public int 
-	getNbRanges() 
+	public int
+	getNbRanges()
 	{
 		return( range_manager_v4.getEntryCount() + range_manager_v6.getEntryCount());
 	}
@@ -891,25 +893,25 @@ IpFilterImpl
 
 			class_mon.exit();
 		}
-		
+
 		if ( valid ){
 
 			if ( r.isV4()){
-			
+
 				range_manager_v4.addRange((IpRangeV4Impl)range );
 
 			}else{
-				
+
 				range_manager_v6.addRange((IpRangeV6Impl)range );
 			}
 		}else{
 
 			if ( r.isV4()){
-			
+
 				range_manager_v4.removeRange((IpRangeV4Impl)range );
-				
+
 			}else{
-				
+
 				range_manager_v6.removeRange((IpRangeV6Impl)range );
 			}
 		}
@@ -1004,7 +1006,8 @@ IpFilterImpl
 
 		markAsUpToDate();
 
-		Logger.log( new LogEvent(LOGID, "Added " + ByteFormatter.encodeString( hash ) + " to excluded set" ));
+		Logger.log( new LogEvent(LOGID_NWMAN,
+			"Added " + ByteFormatter.encodeString( hash ) + " to excluded set" ));
 
 	}
 
@@ -1034,7 +1037,8 @@ IpFilterImpl
 
 		markAsUpToDate();
 
-		Logger.log( new LogEvent(LOGID, "Removed " + ByteFormatter.encodeString( hash ) + " from excluded set" ));
+		Logger.log( new LogEvent(LOGID_NWMAN,
+			"Removed " + ByteFormatter.encodeString( hash ) + " from excluded set" ));
 	}
 
 	@Override
@@ -1098,15 +1102,15 @@ IpFilterImpl
 	{
 		external_handlers.remove( h );
 	}
-	
+
 	protected CopyOnWriteList<IPFilterListener>
 	getListeners()
 	{
 		return( listenerz );
 	}
-	
+
 		// banning methods
-	
+
 	protected void
 	banListChanged()
 	{
@@ -1121,51 +1125,51 @@ IpFilterImpl
 			}
 		}
 	}
-	
+
 	@Override
-	public boolean 
+	public boolean
 	ban(
-		String 		ipAddress, 
-		String 		torrent_name, 
-		boolean 	manual, 
+		String 		ipAddress,
+		String 		torrent_name,
+		boolean 	manual,
 		int 		for_mins )
 	{
 		return( ipBanner.ban( ipAddress, torrent_name, manual, for_mins ));
 	}
-	
+
 	@Override
-	public void 
+	public void
 	clearBannedIps()
 	{
 		ipBanner.clearBannedIps();
 	}
-	
+
 	@Override
-	public BannedIp[] 
+	public BannedIp[]
 	getBannedIps()
 	{
 		return( ipBanner.getBannedIps());
 	}
-	
+
 	@Override
-	public int 
+	public int
 	getNbBannedIps()
 	{
 		return( ipBanner.getNbBannedIps());
 	}
-	
+
 	@Override
-	public boolean 
+	public boolean
 	unban(
 		String ipAddress )
 	{
 		return( ipBanner.unban(ipAddress ));
 	}
-	
+
 	@Override
-	public boolean 
+	public boolean
 	unban(
-		String 		ipAddress, 
+		String 		ipAddress,
 		boolean 	block )
 	{
 		return( ipBanner.unban( ipAddress, block ));

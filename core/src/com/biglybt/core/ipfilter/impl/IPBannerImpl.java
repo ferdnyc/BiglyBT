@@ -44,29 +44,29 @@ import com.biglybt.core.util.TimerEvent;
 import com.biglybt.core.util.TimerEventPerformer;
 import com.biglybt.core.util.TimerEventPeriodic;
 
-public class 
+public class
 IPBannerImpl
 {
 	private final static long BAN_IP_PERSIST_TIME	= 7*24*60*60*1000L;
 
 		// share the class lock here as I refactored this out of IPFilterImpl and I'm not sure
 		// if consistent class locking is required to avoid deadlocks...
-	
+
 	static final AEMonitor	class_mon	= IpFilterImpl.class_mon;
 
 	private final IpFilterImpl					ipFilter;
-	
+
 	private final Map<Integer,BannedIpImpl>			bannedIps_v4		= new HashMap<>();
 	private final Map<InetAddress,BannedIpImpl>		bannedIps_v6		= new HashMap<>();
 	private final Map<String,BannedIpImpl>			bannedIps_other		= new HashMap<>();
 
-	
+
 	protected
 	IPBannerImpl(
 		IpFilterImpl		_ipFilter )
 	{
 		ipFilter = _ipFilter;
-				
+
 		try{
 			loadBannedIPs();
 
@@ -75,8 +75,8 @@ IPBannerImpl
 			Debug.printStackTrace(e);
 		}
 	}
-	
-	
+
+
 	protected void
 	loadBannedIPs()
 	{
@@ -120,7 +120,7 @@ IPBannerImpl
 
 								Logger.log(
 									new LogEvent(
-										IpFilterImpl.LOGID, LogEvent.LT_INFORMATION,
+										IpFilterImpl.LOGID_NWMAN, LogEvent.LT_INFORMATION,
 										"Persistent ban dropped as too old : "
 											+ ip + ", " + desc));
 					      }
@@ -129,19 +129,19 @@ IPBannerImpl
 					if ( !drop ){
 
 						BannedIpImpl bip = new BannedIpImpl( ip, desc, time );
-						
+
 						Object oa = decodeAddress( ip );
 
 						if ( oa instanceof Integer ){
-						
+
 							bannedIps_v4.put((Integer)oa, bip );
-							
+
 						}else if ( oa instanceof InetAddress ){
-							
+
 							bannedIps_v6.put((InetAddress)oa, bip );
-							
+
 						}else{
-							
+
 							bannedIps_other.put((String)oa, bip );
 						}
 					}
@@ -164,59 +164,59 @@ IPBannerImpl
 
 			try{
 				class_mon.enter();
-	
+
 				Map	map = new HashMap();
-	
+
 				List	ips = new ArrayList();
-	
-				List<Iterator<BannedIpImpl>>	its = 
-						Arrays.asList( 
+
+				List<Iterator<BannedIpImpl>>	its =
+						Arrays.asList(
 							bannedIps_v4.values().iterator(),
 							bannedIps_v6.values().iterator(),
 							bannedIps_other.values().iterator() );
-							
+
 				for ( Iterator<BannedIpImpl> it: its ){
-	
+
 					while( it.hasNext()){
-		
+
 						BannedIpImpl	bip = (BannedIpImpl)it.next();
-		
+
 						if ( bip.isTemporary()){
-		
+
 							continue;
 						}
-		
+
 						Map	entry = new HashMap();
-		
+
 						entry.put( "ip", bip.getIp());
 						entry.put( "desc", bip.getTorrentName().getBytes( "UTF-8" ));
 						entry.put( "time", new Long( bip.getBanningTime()));
-		
+
 						ips.add( entry );
 					}
 				}
-	
+
 				map.put( "ips", ips );
-	
+
 				FileUtil.writeResilientConfigFile( "banips.config", map );
-	
+
 			}catch( Throwable e ){
-	
+
 				Debug.printStackTrace(e);
-	
+
 			}finally{
-	
+
 				class_mon.exit();
 			}
 		}
 	}
-	
+
 	protected boolean
 	isBanned(
 		InetAddress ipAddress)
 	{
 		Object oa = decodeAddress( ipAddress );
-		
+
 		try{
 			class_mon.enter();
 
@@ -249,9 +249,9 @@ IPBannerImpl
 				return( bannedIps_v4.containsKey((Integer)oa ));
 
 			}else if ( oa instanceof InetAddress ){
-				
+
 				return( bannedIps_v6.containsKey((InetAddress)oa ));
-				
+
 			}else{
 
 				return( bannedIps_other.containsKey((String)oa ));
@@ -261,7 +261,7 @@ IPBannerImpl
 			class_mon.exit();
 		}
 	}
-	
+
 	public boolean
 	ban(
 		String 		ipAddress,
@@ -295,14 +295,14 @@ IPBannerImpl
 		boolean temporary = for_mins > 0;
 
 		Object oa = decodeAddress( ipAddress );
-		
+
 		try{
 			class_mon.enter();
 
 			if ( oa instanceof Integer ){
-				
+
 				Integer address = (Integer)oa;
-			
+
 				if ( bannedIps_v4.get( address ) == null ){
 
 					BannedIpImpl	new_ban = new BannedIpImpl( ipAddress, torrent_name, temporary );
@@ -312,7 +312,7 @@ IPBannerImpl
 					bannedIps_v4.put( address, new_ban );
 
 						// block banning check for v4
-					
+
 					long	l_address = address;
 
 			    	if ( l_address < 0 ){
@@ -357,9 +357,9 @@ IPBannerImpl
 					}
 				}
 			}else if ( oa instanceof InetAddress ){
-				
+
 				InetAddress	address = (InetAddress)oa;
-			
+
 				if ( bannedIps_v6.get( address ) == null ){
 
 					BannedIpImpl	new_ban = new BannedIpImpl( ipAddress, torrent_name, temporary );
@@ -369,9 +369,9 @@ IPBannerImpl
 					bannedIps_v6.put( address, new_ban );
 				}
 			}else{
-				
+
 				String	address = (String)oa;
-				
+
 				if ( bannedIps_other.get( address ) == null ){
 
 					BannedIpImpl	new_ban = new BannedIpImpl( ipAddress, torrent_name, temporary );
@@ -381,17 +381,17 @@ IPBannerImpl
 					bannedIps_other.put( address, new_ban );
 				}
 			}
-			
+
 			if ( !new_bans.isEmpty()){
-				
+
 				if ( temporary ){
-					
+
 					for ( BannedIpImpl ban: new_bans ){
-						
+
 						addTemporaryBan( ban, for_mins );
 					}
 				}
-				
+
 				saveBannedIPs();
 			}
 		}finally{
@@ -416,10 +416,10 @@ IPBannerImpl
 		}
 
 		if ( new_bans.size() > 0 ){
-			
+
 			ipFilter.banListChanged();
 		}
-		
+
 		return( block_ban );
 	}
 
@@ -449,7 +449,7 @@ IPBannerImpl
 							TimerEvent event)
 						{
 							List<String> to_unban = new ArrayList<>();
-							
+
 							try{
 								class_mon.enter();
 
@@ -487,9 +487,9 @@ IPBannerImpl
 
 								class_mon.exit();
 							}
-							
+
 							for ( String ip: to_unban ){
-								
+
 								unban( ip );
 							}
 						}
@@ -540,11 +540,11 @@ IPBannerImpl
 			class_mon.enter();
 
 			List<BannedIp> ips = new ArrayList<>( getNbBannedIps());
-			
+
 			ips.addAll( bannedIps_v4.values());
 			ips.addAll( bannedIps_v6.values());
 			ips.addAll( bannedIps_other.values());
-			
+
 			BannedIp[]	res = new BannedIp[ips.size()];
 
 			ips.toArray( res );
@@ -583,7 +583,7 @@ IPBannerImpl
 
 			class_mon.exit();
 		}
-				
+
 		ipFilter.banListChanged();
 	}
 
@@ -592,31 +592,31 @@ IPBannerImpl
 		String ipAddress )
 	{
 		boolean hit = false;
-		
+
 		Object oa = decodeAddress( ipAddress );
 
-		try{			
+		try{
 			class_mon.enter();
 
 			BannedIpImpl entry;
-			
+
 			if ( oa instanceof Integer ){
 
 				entry = bannedIps_v4.remove((Integer)oa);
-				
+
 			}else if ( oa instanceof InetAddress ){
 
 				entry = bannedIps_v6.remove((InetAddress)oa);
-				
+
 			}else{
-				
+
 				entry = bannedIps_other.remove((String)oa);
 			}
-			
+
 			if ( entry != null ){
 
 				hit = true;
-				
+
 				if ( !entry.isTemporary()){
 
 					saveBannedIPs();
@@ -627,26 +627,26 @@ IPBannerImpl
 
 			class_mon.exit();
 		}
-		
+
 		if ( hit ){
-			
+
 			ipFilter.banListChanged();
 		}
-		
+
 		return( hit );
 	}
 
 	public boolean
 	unban(
-		String 		ipAddress, 
+		String 		ipAddress,
 		boolean 	block )
 	{
 		boolean	hit = false;
 
 		Object oa = decodeAddress( ipAddress );
-		
+
 			// only support block bans for v4
-		
+
 		if ( block && oa instanceof Integer ){
 
 			int	address = (Integer)oa;
@@ -690,22 +690,22 @@ IPBannerImpl
 				class_mon.enter();
 
 				if ( oa instanceof Integer ){
-					
+
 					hit = bannedIps_v4.remove((Integer)oa) != null;
-					
+
 				}else if ( oa instanceof InetAddress ){
-					
+
 					hit = bannedIps_v6.remove((InetAddress)oa) != null;
-					
+
 				}else{
-					
+
 					hit = bannedIps_other.remove((String)oa) != null;
 				}
-				
+
 				if ( hit ){
-					
+
 					hit = true;
-					
+
 					saveBannedIPs();
 				}
 
@@ -714,26 +714,26 @@ IPBannerImpl
 				class_mon.exit();
 			}
 		}
-		
+
 		if ( hit ){
-			
+
 			ipFilter.banListChanged();
 		}
-		
+
 		return( hit );
 	}
-	
-	
+
+
 	private Object
 	decodeAddress(
 		String		address )
 	{
 		try{
 			if ( HostNameToIPResolver.isNonDNSName( address )){
-				
+
 				return( address );
 			}
-			
+
 			return( decodeAddress( HostNameToIPResolver.syncResolve(address)));
 
 		}catch( Throwable e ){
@@ -747,11 +747,11 @@ IPBannerImpl
 		InetAddress	address )
 	{
 		if ( address instanceof Inet4Address ){
-		
+
 			return( PRHelpers.addressToInt( address ));
-			
+
 		}else{
-			
+
 			return( address );
 		}
 	}

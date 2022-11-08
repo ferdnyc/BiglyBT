@@ -40,7 +40,7 @@ import com.biglybt.core.util.SystemTime;
 public class
 IPAddressRangeManagerV4
 {
-	private static final LogIDs LOGID = LogIDs.CORE;
+	private static final LogIDs LOGID_NWMAN = LogIDs.NWMAN;
 
 	protected final Set<IpRangeV4Impl> entries = new IdentityHashSet<>();
 
@@ -102,7 +102,7 @@ IPAddressRangeManagerV4
 
 			return( null );
 		}
-		
+
 		try{
 			this_mon.enter();
 
@@ -260,7 +260,7 @@ IPAddressRangeManagerV4
 	rebuild()
 	{
 		if (Logger.isEnabled())
-			Logger.log(new LogEvent(LOGID, "IPAddressRangeManager: rebuilding "
+			Logger.log(new LogEvent(LOGID_NWMAN, "IPAddressRangeManager: rebuilding "
 					+ entries.size() + " entries starts"));
 
 		IpRangeV4Impl[]	ents = new IpRangeV4Impl[entries.size()];
@@ -366,7 +366,7 @@ IPAddressRangeManagerV4
 			//	System.out.println( "non_merged = " + merged_entries.length );
 
 		if (Logger.isEnabled())
-			Logger.log(new LogEvent(LOGID, "IPAddressRangeManager: rebuilding "
+			Logger.log(new LogEvent(LOGID_NWMAN, "IPAddressRangeManager: rebuilding "
 					+ entries.size() + " entries ends"));
 
 	}
@@ -499,9 +499,9 @@ IPAddressRangeManagerV4
 	{
 		try{
 			this_mon.enter();
-		
+
 			return( new ArrayList<>( entries ));
-			
+
 		}finally{
 
 			this_mon.exit();
@@ -513,9 +513,9 @@ IPAddressRangeManagerV4
 	{
 		return( entries.size());
 	}
-	
-	protected void 
-	clearAllEntries() 
+
+	protected void
+	clearAllEntries()
 	{
 		try{
 			this_mon.enter();
